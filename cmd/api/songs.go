@@ -26,11 +26,11 @@ func (app *application) showSongHandler(w http.ResponseWriter, r *http.Request) 
 		ID:       id,
 		AddedAt:  time.Now(),
 		Title:    "Oxxxymiron - Лига Опасного Интернета",
-		Duration: 102,
-		Genres:   []string{"rap", "hip-hop", "pop"},
+		Duration: 151,
+		Genres:   []string{"rap", "hip-hop"},
 		Version:  1,
 	} // Encode the struct to JSON and send it as the HTTP response.
-	err = app.writeJSON(w, http.StatusOK, song, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"song": song}, nil)
 	if err != nil {
 		app.logger.Println(err)
 		http.Error(w, "The server encountered a problem and could not process your request", http.StatusInternalServerError)
