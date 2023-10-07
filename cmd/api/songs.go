@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-// Add a createMovieHandler for the "POST /v1/movies" endpoint. For now we simply
-// return a plain-text placeholder response.
 func (app *application) createSongHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "create a new song")
 }
@@ -19,7 +17,7 @@ func (app *application) createSongHandler(w http.ResponseWriter, r *http.Request
 func (app *application) showSongHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
-		http.NotFound(w, r)
+		app.notFoundResponse(w, r)
 		return
 	}
 	song := data.Song{
@@ -32,7 +30,6 @@ func (app *application) showSongHandler(w http.ResponseWriter, r *http.Request) 
 	} // Encode the struct to JSON and send it as the HTTP response.
 	err = app.writeJSON(w, http.StatusOK, envelope{"song": song}, nil)
 	if err != nil {
-		app.logger.Println(err)
-		http.Error(w, "The server encountered a problem and could not process your request", http.StatusInternalServerError)
+		app.serverErrorResponse(w, r, err)
 	}
 }
