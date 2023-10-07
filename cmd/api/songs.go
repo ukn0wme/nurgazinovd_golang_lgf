@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"nurgazinovd_golang_lg/internal/data"
@@ -8,12 +9,22 @@ import (
 )
 
 func (app *application) createSongHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "create a new song")
+
+	var input struct {
+		Title    string   `json:"title"`
+		Year     int32    `json:"year"`
+		Duration int32    `json:"duration"`
+		Genres   []string `json:"genres"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		app.errorResponse(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+	fmt.Fprintf(w, "%+v\n", input)
 }
 
-// Add a showMovieHandler for the "GET /v1/movies/:id" endpoint. For now, we retrieve
-// the interpolated "id" parameter from the current URL and include it in a placeholder
-// response.
 func (app *application) showSongHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
