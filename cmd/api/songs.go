@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"nurgazinovd_golang_lg/internal/data"
+	"time"
 )
 
 // Add a createMovieHandler for the "POST /v1/movies" endpoint. For now we simply
@@ -20,5 +22,17 @@ func (app *application) showSongHandler(w http.ResponseWriter, r *http.Request) 
 		http.NotFound(w, r)
 		return
 	}
-	fmt.Fprintf(w, "show the details of the song %d\n", id)
+	song := data.Song{
+		ID:       id,
+		AddedAt:  time.Now(),
+		Title:    "Oxxxymiron - Лига Опасного Интернета",
+		Duration: 102,
+		Genres:   []string{"rap", "hip-hop", "pop"},
+		Version:  1,
+	} // Encode the struct to JSON and send it as the HTTP response.
+	err = app.writeJSON(w, http.StatusOK, song, nil)
+	if err != nil {
+		app.logger.Println(err)
+		http.Error(w, "The server encountered a problem and could not process your request", http.StatusInternalServerError)
+	}
 }
