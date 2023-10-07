@@ -10,14 +10,13 @@ import (
 func (app *application) createSongHandler(w http.ResponseWriter, r *http.Request) {
 
 	var input struct {
-		Title    string   `json:"title"`
-		Year     int32    `json:"year"`
-		Duration int32    `json:"duration"`
-		Genres   []string `json:"genres"`
+		Title    string        `json:"title"`
+		Year     int32         `json:"year"`
+		Duration data.Duration `json:"duration"`
+		Genres   []string      `json:"genres"`
 	}
 	err := app.readJSON(w, r, &input)
 	if err != nil {
-		// Use the new badRequestResponse() helper.
 		app.badRequestResponse(w, r, err)
 		return
 	}
