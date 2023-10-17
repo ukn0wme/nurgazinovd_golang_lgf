@@ -5,17 +5,14 @@ import (
 	"database/sql" // New import
 	"flag"
 	"fmt"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq"
 	"log"
 	"net/http"
 	"os"
 	"time"
-	// Import the pq driver so that it can register itself with the database/sql
-	// package. Note that we alias this import to the blank identifier, to stop the Go
-	// compiler complaining that the package isn't being used.
-	"github.com/golang-migrate/migrate/v4"                   // New import
-	"github.com/golang-migrate/migrate/v4/database/postgres" // New import
-	_ "github.com/golang-migrate/migrate/v4/source/file"     // New import
-	_ "github.com/lib/pq"
 )
 
 const version = "1.0.0"
@@ -63,15 +60,15 @@ func main() {
 	logger.Printf("database connection pool established")
 	migrationDriver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		logger.PrintFatal(err, nil)
+		logger.Fatal(err, nil)
 	}
 	migrator, err := migrate.NewWithDatabaseInstance("file:///path/to/your/migrations", "postgres", migrationDriver)
 	if err != nil {
-		logger.PrintFatal(err, nil)
+		logger.Fatal(err, nil)
 	}
 	err = migrator.Up()
 	if err != nil && err != migrate.ErrNoChange {
-		logger.PrintFatal(err, nil)
+		logger.Fatal(err, nil)
 	}
 	logger.Printf("database migrations applied")
 
