@@ -66,3 +66,60 @@ func (app *application) showSongHandler(w http.ResponseWriter, r *http.Request) 
 		app.serverErrorResponse(w, r, err)
 	}
 }
+func (app *application) updateSongHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract the song ID from the URL.
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+	// Fetch the existing song record from the database, sending a 404 Not Found
+	// response to the client if we couldn't find a matching record.
+	song, err := app.models.Songs.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	// Declare an input struct to hold the expected data from the client.
+	var input struct {
+		Title    string        `json:"title"`
+		Year     int32         `json:"year"`
+		Duration data.Duration `json:"duration"`
+		Genres   []string      `json:"genres"`
+	}
+	// Read the JSON request body data into the input struct.
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	// Copy the values from the request body to the appropriate fields of the song
+	// record.
+	song.Title = input.Title
+	song.Year = input.Year
+	song.Duration = input.Duration
+	song.Genres = input.Genres
+	// Validate the updated song record, sending the client a 422 Unprocessable Entity
+	// response if any checks fail.
+	v := validator.New()
+	if data.ValidateSong(v, song); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	// Pass the updated song record to our new Update() method.
+	err = app.models.Songs.Update(song)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	// Write the updated song record in a JSON response.
+	err = app.writeJSON(w, http.StatusOK, envelope{"song": song}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}

@@ -74,12 +74,30 @@ WHERE id = $1`
 			return nil, err
 		}
 	}
-	// Otherwise, return a pointer to the Movie struct.
+	// Otherwise, return a pointer to the song struct.
 	return &song, nil
 }
 func (m SongModel) Update(song *Song) error {
-	return nil
+	// Declare the SQL query for updating the record and returning the new version
+	// number.
+	query := `
+UPDATE musics
+SET title = $1, year = $2, duration = $3, genres = $4, version = version + 1
+WHERE id = $5
+RETURNING version`
+	// Create an args slice containing the values for the placeholder parameters.
+	args := []interface{}{
+		song.Title,
+		song.Year,
+		song.Duration,
+		pq.Array(song.Genres),
+		song.ID,
+	}
+	// Use the QueryRow() method to execute the query, passing in the args slice as a
+	// variadic parameter and scanning the new version value into the song struct.
+	return m.DB.QueryRow(query, args...).Scan(&song.Version)
 }
+
 func (m SongModel) Delete(id int64) error {
 	return nil
 }
