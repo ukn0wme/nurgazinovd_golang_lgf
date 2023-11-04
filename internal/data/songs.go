@@ -58,7 +58,7 @@ func (m SongModel) Get(id int64) (*Song, error) {
 	}
 	query := `
 SELECT id, added_at, title, year, duration, genres, version
-FROM musics
+FROM songs
 WHERE id = $1`
 	var song Song
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -89,7 +89,7 @@ func (m SongModel) Update(song *Song) error {
 	// Declare the SQL query for updating the record and returning the new version
 	// number.
 	query := `
-UPDATE musics
+UPDATE songs
 SET title = $1, year = $2, duration = $3, genres = $4, version = version + 1
 WHERE id = $5 AND version = $6
 RETURNING version`
@@ -140,4 +140,54 @@ WHERE id = $1`
 		return ErrRecordNotFound
 	}
 	return nil
+}
+
+func (m SongModel) GetAll(title string, genres []string, filters Filters) ([]*Song, error) {
+	// Construct the SQL query to retrieve all song records.
+	query := `
+SELECT id, added_at, title, year, duration, genres, version
+FROM songs
+ORDER BY id`
+	// Create a context with a 3-second timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	// Use QueryContext() to execute the query. This returns a sql.Rows resultset
+	// containing the result.
+	rows, err := m.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	// Importantly, defer a call to rows.Close() to ensure that the resultset is closed
+	// before GetAll() returns.
+	defer rows.Close()
+	// Initialize an empty slice to hold the song data.
+	songs := []*Song{}
+	// Use rows.Next to iterate through the rows in the resultset.
+	for rows.Next() {
+		// Initialize an empty Song struct to hold the data for an individual song.
+		var song Song
+		// Scan the values from the row into the Song struct. Again, note that we're
+		// using the pq.Array() adapter on the genres field here.
+		err := rows.Scan(
+			&song.ID,
+			&song.AddedAt,
+			&song.Title,
+			&song.Year,
+			&song.Duration,
+			pq.Array(&song.Genres),
+			&song.Version,
+		)
+		if err != nil {
+			return nil, err
+		}
+		// Add the Song struct to the slice.
+		songs = append(songs, &song)
+	}
+	// When the rows.Next() loop has finished, call rows.Err() to retrieve any error
+	// that was encountered during the iteration.
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	// If everything went OK, then return the slice of songs.
+	return songs, nil
 }

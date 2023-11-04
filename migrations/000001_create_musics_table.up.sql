@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS musics (
+CREATE TABLE IF NOT EXISTS songs (
                                       id bigserial PRIMARY KEY,
                                       added_at timestamp(0) with time zone NOT NULL DEFAULT NOW(),
                                       title text NOT NULL,

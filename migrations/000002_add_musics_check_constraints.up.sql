@@ -1,3 +1,3 @@
-ALTER TABLE musics DROP CONSTRAINT IF EXISTS musics_duration_check;
-ALTER TABLE musics DROP CONSTRAINT IF EXISTS musics_year_check;
-ALTER TABLE musics DROP CONSTRAINT IF EXISTS genres_length_check;
+ALTER TABLE songs DROP CONSTRAINT IF EXISTS songs_duration_check;
+ALTER TABLE songs DROP CONSTRAINT IF EXISTS songs_year_check;
+ALTER TABLE songs DROP CONSTRAINT IF EXISTS genres_length_check;
