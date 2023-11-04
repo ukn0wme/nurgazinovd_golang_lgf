@@ -83,7 +83,7 @@ func (m SongModel) Update(song *Song) error {
 	query := `
 UPDATE musics
 SET title = $1, year = $2, duration = $3, genres = $4, version = version + 1
-WHERE id = $5
+WHERE id = $5 AND version = $6
 RETURNING version`
 	// Create an args slice containing the values for the placeholder parameters.
 	args := []interface{}{
@@ -92,10 +92,18 @@ RETURNING version`
 		song.Duration,
 		pq.Array(song.Genres),
 		song.ID,
+		song.Version,
 	}
-	// Use the QueryRow() method to execute the query, passing in the args slice as a
-	// variadic parameter and scanning the new version value into the song struct.
-	return m.DB.QueryRow(query, args...).Scan(&song.Version)
+	err := m.DB.QueryRow(query, args...).Scan(&song.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 func (m SongModel) Delete(id int64) error {
