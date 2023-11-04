@@ -11,6 +11,7 @@ import (
 	_ "github.com/lib/pq"
 	"log"
 	"net/http"
+	"nurgazinovd_golang_lg/internal/data"
 	"os"
 	"time"
 )
@@ -32,6 +33,7 @@ type config struct {
 type application struct {
 	config config
 	logger *log.Logger
+	models data.Models
 }
 
 func main() {
@@ -47,15 +49,10 @@ func main() {
 	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
 	flag.Parse()
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
-	// Call the openDB() helper function (see below) to create the connection pool,
-	// passing in the config struct. If this returns an error, we log it and exit the
-	// application immediately.
 	db, err := openDB(cfg)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	// Defer a call to db.Close() so that the connection pool is closed before the
-	// main() function exits.
 	defer db.Close()
 	logger.Printf("database connection pool established")
 	migrationDriver, err := postgres.WithInstance(db, &postgres.Config{})
@@ -78,6 +75,7 @@ func main() {
 	app := &application{
 		config: cfg,
 		logger: logger,
+		models: data.NewModels(db),
 	}
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),
@@ -87,8 +85,6 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 	}
 	logger.Printf("starting %s server on %s", cfg.env, srv.Addr)
-	// Because the err variable is now already declared in the code above, we need
-	// to use the = operator here, instead of the := operator.
 	err = srv.ListenAndServe()
 	logger.Fatal(err)
 }

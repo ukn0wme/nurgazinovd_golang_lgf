@@ -1,6 +1,7 @@
 package data
 
 import (
+	"database/sql"
 	"nurgazinovd_golang_lg/internal/validator"
 	"time"
 )
@@ -30,4 +31,21 @@ func ValidateSong(v *validator.Validator, song *Song) {
 	v.Check(len(song.Genres) >= 1, "genres", "must contain at least 1 genre")
 	v.Check(len(song.Genres) <= 3, "genres", "must not contain more than 3 genres")
 	v.Check(validator.Unique(song.Genres), "genres", "must not contain duplicate values")
+}
+
+type SongModel struct {
+	DB *sql.DB
+}
+
+func (m SongModel) Insert(song *Song) error {
+	return nil
+}
+func (m SongModel) Get(id int64) (*Song, error) {
+	return nil, nil
+}
+func (m SongModel) Update(song *Song) error {
+	return nil
+}
+func (m SongModel) Delete(id int64) error {
+	return nil
 }
