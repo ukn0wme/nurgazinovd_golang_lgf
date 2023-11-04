@@ -1,11 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"nurgazinovd_golang_lg/internal/data"
 	"nurgazinovd_golang_lg/internal/validator"
-	"time"
 )
 
 func (app *application) createSongHandler(w http.ResponseWriter, r *http.Request) {
@@ -51,13 +51,15 @@ func (app *application) showSongHandler(w http.ResponseWriter, r *http.Request) 
 		app.notFoundResponse(w, r)
 		return
 	}
-	song := data.Song{
-		ID:       id,
-		AddedAt:  time.Now(),
-		Title:    "Oxxxymiron - Лига Опасного Интернета",
-		Duration: 151,
-		Genres:   []string{"rap", "hip-hop"},
-		Version:  1,
+	song, err := app.models.Songs.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
 	}
 	err = app.writeJSON(w, http.StatusOK, envelope{"song": song}, nil)
 	if err != nil {

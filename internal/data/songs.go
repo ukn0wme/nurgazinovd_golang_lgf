@@ -2,6 +2,7 @@ package data
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/lib/pq"
 	"nurgazinovd_golang_lg/internal/validator"
 	"time"
@@ -46,8 +47,35 @@ RETURNING id, added_at, version`
 	args := []interface{}{song.Title, song.Year, song.Duration, pq.Array(song.Genres)}
 	return m.DB.QueryRow(query, args...).Scan(&song.ID, &song.AddedAt, &song.Version)
 }
+
 func (m SongModel) Get(id int64) (*Song, error) {
-	return nil, nil
+	if id < 1 {
+		return nil, ErrRecordNotFound
+	}
+	query := `
+SELECT id, added_at, title, year, duration, genres, version
+FROM musics
+WHERE id = $1`
+	var song Song
+	err := m.DB.QueryRow(query, id).Scan(
+		&song.ID,
+		&song.AddedAt,
+		&song.Title,
+		&song.Year,
+		&song.Duration,
+		pq.Array(&song.Genres),
+		&song.Version,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	// Otherwise, return a pointer to the Movie struct.
+	return &song, nil
 }
 func (m SongModel) Update(song *Song) error {
 	return nil
