@@ -2,6 +2,7 @@ package data
 
 import (
 	"database/sql"
+	"github.com/lib/pq"
 	"nurgazinovd_golang_lg/internal/validator"
 	"time"
 )
@@ -38,7 +39,12 @@ type SongModel struct {
 }
 
 func (m SongModel) Insert(song *Song) error {
-	return nil
+	query := `
+INSERT INTO songs (title, year, duration, genres)
+VALUES ($1, $2, $3, $4)
+RETURNING id, added_at, version`
+	args := []interface{}{song.Title, song.Year, song.Duration, pq.Array(song.Genres)}
+	return m.DB.QueryRow(query, args...).Scan(&song.ID, &song.AddedAt, &song.Version)
 }
 func (m SongModel) Get(id int64) (*Song, error) {
 	return nil, nil

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var ErrInvalidRuntimeFormat = errors.New("invalid runtime format")
+var ErrInvalidDurationFormat = errors.New("invalid duration format")
 
 type Duration int32
 
@@ -20,15 +20,15 @@ func (r Duration) MarshalJSON() ([]byte, error) {
 func (r *Duration) UnmarshalJSON(jsonValue []byte) error {
 	unquotedJSONValue, err := strconv.Unquote(string(jsonValue))
 	if err != nil {
-		return ErrInvalidRuntimeFormat
+		return ErrInvalidDurationFormat
 	}
 	parts := strings.Split(unquotedJSONValue, " ")
 	if len(parts) != 2 || parts[1] != "seconds" {
-		return ErrInvalidRuntimeFormat
+		return ErrInvalidDurationFormat
 	}
 	i, err := strconv.ParseInt(parts[0], 10, 32)
 	if err != nil {
-		return ErrInvalidRuntimeFormat
+		return ErrInvalidDurationFormat
 	}
 	*r = Duration(i)
 	return nil
