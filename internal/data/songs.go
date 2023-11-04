@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/lib/pq"
 	"nurgazinovd_golang_lg/internal/validator"
 	"time"
@@ -143,31 +144,24 @@ WHERE id = $1`
 }
 
 func (m SongModel) GetAll(title string, genres []string, filters Filters) ([]*Song, error) {
-	// Construct the SQL query to retrieve all song records.
-	query := `
+	// Update the SQL query to include the filter conditions.
+	query := fmt.Sprintf(`
 SELECT id, added_at, title, year, duration, genres, version
 FROM songs
-ORDER BY id`
-	// Create a context with a 3-second timeout.
+WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
+AND (genres @> $2 OR $2 = '{}')
+ORDER BY %s %s, id ASC`, filters.sortColumn(), filters.sortDirection())
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	// Use QueryContext() to execute the query. This returns a sql.Rows resultset
-	// containing the result.
-	rows, err := m.DB.QueryContext(ctx, query)
+	// Pass the title and genres as the placeholder parameter values.
+	rows, err := m.DB.QueryContext(ctx, query, title, pq.Array(genres))
 	if err != nil {
 		return nil, err
 	}
-	// Importantly, defer a call to rows.Close() to ensure that the resultset is closed
-	// before GetAll() returns.
 	defer rows.Close()
-	// Initialize an empty slice to hold the song data.
 	songs := []*Song{}
-	// Use rows.Next to iterate through the rows in the resultset.
 	for rows.Next() {
-		// Initialize an empty Song struct to hold the data for an individual song.
 		var song Song
-		// Scan the values from the row into the Song struct. Again, note that we're
-		// using the pq.Array() adapter on the genres field here.
 		err := rows.Scan(
 			&song.ID,
 			&song.AddedAt,
@@ -180,14 +174,10 @@ ORDER BY id`
 		if err != nil {
 			return nil, err
 		}
-		// Add the Song struct to the slice.
 		songs = append(songs, &song)
 	}
-	// When the rows.Next() loop has finished, call rows.Err() to retrieve any error
-	// that was encountered during the iteration.
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	// If everything went OK, then return the slice of songs.
 	return songs, nil
 }
