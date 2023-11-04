@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"github.com/lib/pq"
@@ -45,7 +46,10 @@ INSERT INTO songs (title, year, duration, genres)
 VALUES ($1, $2, $3, $4)
 RETURNING id, added_at, version`
 	args := []interface{}{song.Title, song.Year, song.Duration, pq.Array(song.Genres)}
-	return m.DB.QueryRow(query, args...).Scan(&song.ID, &song.AddedAt, &song.Version)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	return m.DB.QueryRowContext(ctx, query, args...).Scan(&song.ID, &song.AddedAt, &song.Version)
 }
 
 func (m SongModel) Get(id int64) (*Song, error) {
@@ -57,7 +61,12 @@ SELECT id, added_at, title, year, duration, genres, version
 FROM musics
 WHERE id = $1`
 	var song Song
-	err := m.DB.QueryRow(query, id).Scan(
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	// Importantly, use defer to make sure that we cancel the context before the Get()
+	// method returns.
+	defer cancel()
+
+	err := m.DB.QueryRowContext(ctx, query, id).Scan(
 		&song.ID,
 		&song.AddedAt,
 		&song.Title,
@@ -74,7 +83,6 @@ WHERE id = $1`
 			return nil, err
 		}
 	}
-	// Otherwise, return a pointer to the song struct.
 	return &song, nil
 }
 func (m SongModel) Update(song *Song) error {
@@ -94,7 +102,9 @@ RETURNING version`
 		song.ID,
 		song.Version,
 	}
-	err := m.DB.QueryRow(query, args...).Scan(&song.Version)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&song.Version)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -115,22 +125,17 @@ func (m SongModel) Delete(id int64) error {
 	query := `
 DELETE FROM songs
 WHERE id = $1`
-	// Execute the SQL query using the Exec() method, passing in the id variable as
-	// the value for the placeholder parameter. The Exec() method returns a sql.Result
-	// object.
-	result, err := m.DB.Exec(query, id)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	// Use ExecContext() and pass the context as the first argument.
+	result, err := m.DB.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
-	// Call the RowsAffected() method on the sql.Result object to get the number of rows
-	// affected by the query.
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
-	// If no rows were affected, we know that the songs table didn't contain a record
-	// with the provided ID at the moment we tried to delete it. In that case we
-	// return an ErrRecordNotFound error.
 	if rowsAffected == 0 {
 		return ErrRecordNotFound
 	}
