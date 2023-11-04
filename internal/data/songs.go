@@ -143,26 +143,31 @@ WHERE id = $1`
 	return nil
 }
 
-func (m SongModel) GetAll(title string, genres []string, filters Filters) ([]*Song, error) {
+func (m SongModel) GetAll(title string, genres []string, filters Filters) ([]*Song, Metadata, error) {
 	// Update the SQL query to include the filter conditions.
 	query := fmt.Sprintf(`
-SELECT id, added_at, title, year, duration, genres, version
-FROM songs
-WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
-AND (genres @> $2 OR $2 = '{}')
-ORDER BY %s %s, id ASC`, filters.sortColumn(), filters.sortDirection())
+		SELECT count(*) OVER(), id, added_at, title, year, duration, genres, version
+		FROM songs
+		WHERE (to_tsvector('simple', title) @@ plainto_tsquery('simple', $1) OR $1 = '')
+		AND (genres @> $2 OR $2 = '{}')
+		ORDER BY %s %s, id ASC
+		LIMIT $3 OFFSET $4`, filters.sortColumn(), filters.sortDirection())
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	// Pass the title and genres as the placeholder parameter values.
-	rows, err := m.DB.QueryContext(ctx, query, title, pq.Array(genres))
+	args := []interface{}{title, pq.Array(genres), filters.limit(), filters.offset()}
+	rows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 	defer rows.Close()
+
+	totalRecords := 0
 	songs := []*Song{}
 	for rows.Next() {
 		var song Song
 		err := rows.Scan(
+			&totalRecords,
 			&song.ID,
 			&song.AddedAt,
 			&song.Title,
@@ -172,12 +177,13 @@ ORDER BY %s %s, id ASC`, filters.sortColumn(), filters.sortDirection())
 			&song.Version,
 		)
 		if err != nil {
-			return nil, err
+			return nil, Metadata{}, err
 		}
 		songs = append(songs, &song)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
-	return songs, nil
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+	return songs, metadata, nil
 }

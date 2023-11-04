@@ -181,15 +181,14 @@ func (app *application) listSongsHandler(w http.ResponseWriter, r *http.Request)
 		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
-	// Call the GetAll() method to retrieve the songs, passing in the various filter
-	// parameters.
-	songs, err := app.models.Songs.GetAll(input.Title, input.Genres, input.Filters)
+	// Accept the metadata struct as a return value.
+	songs, metadata, err := app.models.Songs.GetAll(input.Title, input.Genres, input.Filters)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
-	// Send a JSON response containing the song data.
-	err = app.writeJSON(w, http.StatusOK, envelope{"songs": songs}, nil)
+	// Include the metadata in the response envelope.
+	err = app.writeJSON(w, http.StatusOK, envelope{"songs": songs, "metadata": metadata}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
