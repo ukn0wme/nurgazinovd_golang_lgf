@@ -10,13 +10,11 @@ import (
 )
 
 func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Request) {
-	// Create an anonymous struct to hold the expected data from the request body.
 	var input struct {
 		Name     string `json:"name"`
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-	// Parse the request body into the anonymous struct.
 	err := app.readJSON(w, r, &input)
 	if err != nil {
 		app.badRequestResponse(w, r, err)
@@ -48,23 +46,22 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		}
 		return
 	}
-	// After the user record has been created in the database, generate a new activation
-	// token for the user.
+	// Add the "songs:read" permission for the new user.
+	err = app.models.Permissions.AddForUser(user.ID, "songs:read")
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 	token, err := app.models.Tokens.New(user.ID, 3*24*time.Hour, data.ScopeActivation)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 	app.background(func() {
-		// As there are now multiple pieces of data that we want to pass to our email
-		// templates, we create a map to act as a 'holding structure' for the data. This
-		// contains the plaintext version of the activation token for the user, along
-		// with their ID.
 		data := map[string]interface{}{
 			"activationToken": token.Plaintext,
 			"userID":          user.ID,
 		}
-		// Send the welcome email, passing in the map above as dynamic data.
 		err = app.mailer.Send(user.Email, "user_welcome.tmpl", data)
 		if err != nil {
 			app.logger.PrintError(err, nil)
