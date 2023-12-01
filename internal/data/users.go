@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"golang.org/x/crypto/bcrypt"
@@ -25,7 +26,7 @@ type User struct {
 
 type password struct {
 	plaintext *string
-	hash      []byte
+	Hash      []byte
 }
 
 func (p *password) Set(plaintextPassword string) error {
@@ -34,11 +35,11 @@ func (p *password) Set(plaintextPassword string) error {
 		return err
 	}
 	p.plaintext = &plaintextPassword
-	p.hash = hash
+	p.Hash = hash
 	return nil
 }
 func (p *password) Matches(plaintextPassword string) (bool, error) {
-	err := bcrypt.CompareHashAndPassword(p.hash, []byte(plaintextPassword))
+	err := bcrypt.CompareHashAndPassword(p.Hash, []byte(plaintextPassword))
 	if err != nil {
 		switch {
 		case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):
@@ -66,7 +67,7 @@ func ValidateUser(v *validator.Validator, user *User) {
 	if user.Password.plaintext != nil {
 		ValidatePasswordPlaintext(v, *user.Password.plaintext)
 	}
-	if user.Password.hash == nil {
+	if user.Password.Hash == nil {
 		panic("missing password hash for user")
 	}
 }
@@ -80,7 +81,7 @@ func (m UserModel) Insert(user *User) error {
 INSERT INTO users (name, email, password_hash, activated)
 VALUES ($1, $2, $3, $4)
 RETURNING id, created_at, version`
-	args := []interface{}{user.Name, user.Email, user.Password.hash, user.Activated}
+	args := []interface{}{user.Name, user.Email, user.Password.Hash, user.Activated}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	// If the table already contains a record with this email address, then when we try
@@ -112,7 +113,7 @@ WHERE email = $1`
 		&user.CreatedAt,
 		&user.Name,
 		&user.Email,
-		&user.Password.hash,
+		&user.Password.Hash,
 		&user.Activated,
 		&user.Version,
 	)
@@ -136,7 +137,7 @@ RETURNING version`
 	args := []interface{}{
 		user.Name,
 		user.Email,
-		user.Password.hash,
+		user.Password.Hash,
 		user.Activated,
 		user.ID,
 		user.Version,
@@ -155,4 +156,48 @@ RETURNING version`
 		}
 	}
 	return nil
+}
+
+func (m UserModel) GetForToken(tokenScope, tokenPlaintext string) (*User, error) {
+	// Calculate the SHA-256 hash of the plaintext token provided by the client.
+	// Remember that this returns a byte *array* with length 32, not a slice.
+	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
+	// Set up the SQL query.
+	query := `
+SELECT users.id, users.created_at, users.name, users.email, users.password_hash, users.activated, users.version
+FROM users
+INNER JOIN tokens
+ON users.id = tokens.user_id
+WHERE tokens.hash = $1
+AND tokens.scope = $2
+AND tokens.expiry > $3`
+	// Create a slice containing the query arguments. Notice how we use the [:] operator
+	// to get a slice containing the token hash, rather than passing in the array (which
+	// is not supported by the pq driver), and that we pass the current time as the
+	// value to check against the token expiry.
+	args := []interface{}{tokenHash[:], tokenScope, time.Now()}
+	var user User
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	// Execute the query, scanning the return values into a User struct. If no matching
+	// record is found we return an ErrRecordNotFound error.
+	err := m.DB.QueryRowContext(ctx, query, args...).Scan(
+		&user.ID,
+		&user.CreatedAt,
+		&user.Name,
+		&user.Email,
+		&user.Password.Hash,
+		&user.Activated,
+		&user.Version,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	// Return the matching user.
+	return &user, nil
 }
