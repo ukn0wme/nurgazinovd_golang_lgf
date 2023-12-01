@@ -8,6 +8,7 @@ import (
 	_ "github.com/lib/pq"
 	"nurgazinovd_golang_lg/internal/data"
 	"nurgazinovd_golang_lg/internal/jsonlog"
+	"nurgazinovd_golang_lg/internal/mailer"
 	"os"
 	"time"
 )
@@ -24,16 +25,25 @@ type config struct {
 		maxIdleTime  string
 	}
 	limiter struct {
+		enabled bool
 		rps     float64
 		burst   int
-		enabled bool
+	}
+	smtp struct {
+		host     string
+		port     int
+		username string
+		password string
+		sender   string
 	}
 }
 
+// Update the application struct to hold a new Mailer instance.
 type application struct {
 	config config
 	logger *jsonlog.Logger
 	models data.Models
+	mailer mailer.Mailer
 }
 
 func main() {
@@ -52,24 +62,27 @@ func main() {
 	flag.IntVar(&cfg.limiter.burst, "limiter-burst", 4, "Rate limiter maximum burst")
 	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
 
+	flag.StringVar(&cfg.smtp.host, "smtp-host", "sandbox.smtp.mailtrap.io", "SMTP host")
+	flag.IntVar(&cfg.smtp.port, "smtp-port", 25, "SMTP port")
+	flag.StringVar(&cfg.smtp.username, "smtp-username", "a85cb99c290767", "SMTP username")
+	flag.StringVar(&cfg.smtp.password, "smtp-password", "e587fa74eedba2", "SMTP password")
+	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "SalemMusic <no-reply@salemmusic.com>", "SMTP sender")
 	flag.Parse()
-	// Initialize a new jsonlog.Logger which writes any messages *at or above* the INFO
-	// severity level to the standard out stream.
+
 	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 	db, err := openDB(cfg)
 	if err != nil {
-		// Use the PrintFatal() method to write a log entry containing the error at the
-		// FATAL level and exit. We have no additional properties to include in the log
-		// entry, so we pass nil as the second parameter.
 		logger.PrintFatal(err, nil)
 	}
 	defer db.Close()
-	// Likewise use the PrintInfo() method to write a message at the INFO level.
 	logger.PrintInfo("database connection pool established", nil)
+	// Initialize a new Mailer instance using the settings from the command line
+	// flags, and add it to the application struct.
 	app := &application{
 		config: cfg,
 		logger: logger,
 		models: data.NewModels(db),
+		mailer: mailer.New(cfg.smtp.host, cfg.smtp.port, cfg.smtp.username, cfg.smtp.password, cfg.smtp.sender),
 	}
 	err = app.serve()
 	if err != nil {
