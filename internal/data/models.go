@@ -11,7 +11,7 @@ var (
 )
 
 type Models struct {
-	Movies      SongModel
+	Songs       SongModel
 	Permissions PermissionModel // Add a new Permissions field.
 	Tokens      TokenModel
 	Users       UserModel
@@ -19,7 +19,7 @@ type Models struct {
 
 func NewModels(db *sql.DB) Models {
 	return Models{
-		Movies:      SongModel{DB: db},
+		Songs:       SongModel{DB: db},
 		Permissions: PermissionModel{DB: db}, // Initialize a new PermissionModel instance.
 		Tokens:      TokenModel{DB: db},
 		Users:       UserModel{DB: db},
