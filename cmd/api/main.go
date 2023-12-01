@@ -10,6 +10,7 @@ import (
 	"nurgazinovd_golang_lg/internal/jsonlog"
 	"nurgazinovd_golang_lg/internal/mailer"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -36,6 +37,9 @@ type config struct {
 		username string
 		password string
 		sender   string
+	}
+	cors struct {
+		trustedOrigins []string
 	}
 }
 
@@ -69,6 +73,10 @@ func main() {
 	flag.StringVar(&cfg.smtp.username, "smtp-username", "a85cb99c290767", "SMTP username")
 	flag.StringVar(&cfg.smtp.password, "smtp-password", "e587fa74eedba2", "SMTP password")
 	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "SalemMusic <no-reply@salemmusic.com>", "SMTP sender")
+	flag.Func("cors-trusted-origins", "Trusted CORS origins (space separated)", func(val string) error {
+		cfg.cors.trustedOrigins = strings.Fields(val)
+		return nil
+	})
 	flag.Parse()
 
 	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
