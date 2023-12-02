@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  salemmusic:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-container
+    environment:
+      - DB_CONNECTION=postgres://salemmusic:Ao511792@db/salemmusic?sslmode=disable
+      - PORT=4000
+    networks:
+      - dev
+    ports:
+      - "4000:4000"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:12
+    ports:
+      - 127.0.0.1:5437:5432
+    environment:
+      POSTGRES_USER: salemmusic
+      POSTGRES_PASSWORD: "Ao511792"
+      POSTGRES_DB: salemmusic
+    networks:
+      - dev
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+
+
+networks:
+  dev:
+    driver: bridge
+
+volumes:
+  postgres:
