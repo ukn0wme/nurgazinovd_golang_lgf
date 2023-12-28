@@ -3,6 +3,7 @@ package main
 import (
 	"context"      // New import
 	"database/sql" // New import
+	"expvar"
 	"flag"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
@@ -10,6 +11,7 @@ import (
 	"nurgazinovd_golang_lg/internal/jsonlog"
 	"nurgazinovd_golang_lg/internal/mailer"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -54,8 +56,14 @@ type application struct {
 
 func main() {
 	var cfg config
-	flag.IntVar(&cfg.port, "port", 4000, "API server port")
-	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
+	//cfg.env = "dev"
+	//portEnv, err := strconv.Atoi(os.Getenv("PORT"))
+	//if err != nil {
+	//	return
+	//}
+	//cfg.port = portEnv
+	//flag.IntVar(&cfg.port, "port", 4000, "API server port")
+	//flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
 	// Read the DSN value from the db-dsn command-line flag into the config struct. We
 	// default to using our development DSN if no flag is provided.
 	flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://salemmusic:Ao511792@localhost/salemmusic?sslmode=disable", "PostgreSQL DSN")
@@ -88,6 +96,19 @@ func main() {
 	logger.PrintInfo("database connection pool established", nil)
 	// Initialize a new Mailer instance using the settings from the command line
 	// flags, and add it to the application struct.
+	expvar.NewString("version").Set(version)
+	// Publish the number of active goroutines.
+	expvar.Publish("goroutines", expvar.Func(func() interface{} {
+		return runtime.NumGoroutine()
+	}))
+	// Publish the database connection pool statistics.
+	expvar.Publish("database", expvar.Func(func() interface{} {
+		return db.Stats()
+	}))
+	// Publish the current Unix timestamp.
+	expvar.Publish("timestamp", expvar.Func(func() interface{} {
+		return time.Now().Unix()
+	}))
 	app := &application{
 		config: cfg,
 		logger: logger,
