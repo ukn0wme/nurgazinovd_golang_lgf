@@ -5,6 +5,7 @@ import (
 	"database/sql" // New import
 	"expvar"
 	"flag"
+	"fmt"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 	"nurgazinovd_golang_lg/internal/data"
@@ -17,7 +18,10 @@ import (
 	"time"
 )
 
-const version = "1.0.0"
+var (
+	buildTime string
+	version   string
+)
 
 type config struct {
 	port int
@@ -56,18 +60,9 @@ type application struct {
 
 func main() {
 	var cfg config
-	//cfg.env = "dev"
-	//portEnv, err := strconv.Atoi(os.Getenv("PORT"))
-	//if err != nil {
-	//	return
-	//}
-	//cfg.port = portEnv
-	//flag.IntVar(&cfg.port, "port", 4000, "API server port")
-	//flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
-	// Read the DSN value from the db-dsn command-line flag into the config struct. We
-	// default to using our development DSN if no flag is provided.
-	flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://salemmusic:Ao511792@localhost/salemmusic?sslmode=disable", "PostgreSQL DSN")
-
+	flag.IntVar(&cfg.port, "port", 4000, "API server port")
+	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
+	flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
 	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
 	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
@@ -85,7 +80,18 @@ func main() {
 		cfg.cors.trustedOrigins = strings.Fields(val)
 		return nil
 	})
+	// Create a new version boolean flag with the default value of false.
+	displayVersion := flag.Bool("version", false, "Display version and exit")
+
 	flag.Parse()
+
+	// If the version flag value is true, then print out the version number and
+	// immediately exit.
+	if *displayVersion {
+		fmt.Printf("Version:\t%s\n", version)
+		fmt.Printf("Build time:\t%s\n", buildTime)
+		os.Exit(0)
+	}
 
 	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
 	db, err := openDB(cfg)
